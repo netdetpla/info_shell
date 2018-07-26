@@ -50,11 +50,15 @@ def doShExec(task_id, task_name, vul_id, ip):
     os.system('chmod 777 /iie_test.py')
     argv = ['python', '/iie_test.py', ip]
     print time.ctime() + '-' + ip + '-Executing shell-'
-    p = Popen(argv, stdout=PIPE)
-    stdout = p.communicate()
+    p = Popen(argv, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = p.communicate()
+    if stderr != '':
+        log.task_run_fail()
+        log.write_error_to_appstatus(str('script error: ' + stderr), -1)
+
     print time.ctime() + '-' + ip + '-Finished-'
-    rlist = stdout[0].split('\n')
-    tmpresultlist = rlist[len(rlist) - 2].split(';')
+    rlist = stdout.split('\n')
+    tmpresultlist = rlist[-2].split(';')
     mtime = time.strftime('%Y-%m-%d %H:%M:%S')
     try:
         data = mtime + ';' + tmpresultlist[0] + ';' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + ';' + \
@@ -62,10 +66,11 @@ def doShExec(task_id, task_name, vul_id, ip):
         prl.append(data)
         log.task_run_success()
     except Exception as e:
-        data = mtime + ';Err;' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + ';Err;Err\n'
-        prl.append(data)
-        log.task_run_fail()
-        log.write_error_to_appstatus(str(e), -1)
+        print(e)
+        #data = mtime + ';Err;' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + ';Err;Err\n'
+        #prl.append(data)
+        #log.task_run_fail()
+        #log.write_error_to_appstatus(str(e), -1)
     return data
 
 
@@ -132,6 +137,7 @@ if __name__ == '__main__':
             writeFile.close()
             log.task_success()
         except Exception as e:
+            print(e)
             writeFile = open(constans.APP + "/1", "w")
             writeFile.write('Exec the upload python script occurs error')
             writeFile.close()

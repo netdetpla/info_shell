@@ -8,7 +8,7 @@ FROM centos:latest
 #ADD setuptools-0.6c11-py2.7.egg /
 ADD ["requests-2.13.0.tar", "scapy-2.3.2.tar", "setuptools-0.6c11-py2.7.egg", "pip-9.0.1.tar.gz", "/"]
 RUN set -ex \
-    && yum install -y tcpdump nmap gcc snmp \
+    && yum install -y tcpdump nmap gcc net-snmp-utils \
     && cd / \
     && sh setuptools-0.6c11-py2.7.egg \
     && cd /scapy-2.3.2 \
