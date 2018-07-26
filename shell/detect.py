@@ -51,23 +51,29 @@ def setConfig():
 def doShExec(task_id, task_name, vul_id, ip):
     log.task_run()
     os.system('chmod 777 /iie_test.py')
-    argv = ['python', '/iie_test.py', ip]
+    argv = ['python /iie_test.py ' + ip]
     print time.ctime() + '-' + ip + '-Executing shell-'
-    p = Popen(argv, stdout=PIPE)
-    stdout = p.communicate()
+    p = Popen(argv, stdout=PIPE, stderr=PIPE, shell=True)
+    stdout, stderr = p.communicate()
+    if stderr:
+        data = mtime + ';Err;' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + '\n'
+        result_queue.put(data)
+        log.task_run_fail()
+        log.write_error_to_appstatus(str('script error: ' + stderr), -1)
     print time.ctime() + '-' + ip + '-Finished-'
-    rlist = stdout[0].split('\n')
-    tmpresultlist = rlist[len(rlist) - 2]
+    rlist = stdout.split('\n')
+    tmpresultlist = rlist[-2].split(';')
     mtime = time.strftime('%Y-%m-%d %H:%M:%S')
     try:
         data = mtime + ';' + tmpresultlist[0] + ';' + task_id + ';' + vul_id + ';' + task_name + ';' + ip +  '\n'
         result_queue.put(data)
         log.task_run_success()
     except Exception as e:
-        data = mtime + ';Err;' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + '\n'
-        result_queue.put(data)
-        log.task_run_fail()
-        log.write_error_to_appstatus(str(e), -1)
+        print(e)
+        #data = mtime + ';Err;' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + '\n'
+        #result_queue.put(data)
+        #log.task_run_fail()
+        #log.write_error_to_appstatus(str(e), -1)
     return data
 
 
@@ -82,6 +88,7 @@ def writeResult():
         log.write_result_success()
     except Exception as result_e:
         print(result_e)
+        print('write err')
         log.write_result_fail()
         log.write_error_to_appstatus(result_e, -1)
 
@@ -155,6 +162,7 @@ if __name__ == '__main__':
             log.task_success()
         except Exception as main_e:
             print(main_e)
+            print('main err')
             log.task_fail()
             log.write_error_to_appstatus(main_e, -1)
 
