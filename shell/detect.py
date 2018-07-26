@@ -10,13 +10,16 @@ import struct
 import time
 import log
 from subprocess import Popen, PIPE
-from multiprocessing import Pool, Manager
+import threading
+# from multiprocessing import Pool, Manager
 import is_connect
 import process
 import traceback
+import Queue
 
-manager = Manager()
-prl = manager.list()
+# manager = Manager()
+# prl = manager.list()
+result_queue = Queue.Queue()
 
 
 def setConfig():
@@ -50,36 +53,30 @@ def doShExec(task_id, task_name, vul_id, ip):
     os.system('chmod 777 /iie_test.py')
     argv = ['python', '/iie_test.py', ip]
     print time.ctime() + '-' + ip + '-Executing shell-'
-    p = Popen(argv, stdout=PIPE, stderr=PIPE)
-    stdout, stderr = p.communicate()
-    if stderr != '':
-        log.task_run_fail()
-        log.write_error_to_appstatus(str('script error: ' + stderr), -1)
-
+    p = Popen(argv, stdout=PIPE)
+    stdout = p.communicate()
     print time.ctime() + '-' + ip + '-Finished-'
-    rlist = stdout.split('\n')
-    tmpresultlist = rlist[-2].split(';')
+    rlist = stdout[0].split('\n')
+    tmpresultlist = rlist[len(rlist) - 2]
     mtime = time.strftime('%Y-%m-%d %H:%M:%S')
     try:
-        data = mtime + ';' + tmpresultlist[0] + ';' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + ';' + \
-               tmpresultlist[1] + ';' + tmpresultlist[2] + '\n'
-        prl.append(data)
+        data = mtime + ';' + tmpresultlist[0] + ';' + task_id + ';' + vul_id + ';' + task_name + ';' + ip +  '\n'
+        result_queue.put(data)
         log.task_run_success()
     except Exception as e:
-        print(e)
-        #data = mtime + ';Err;' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + ';Err;Err\n'
-        #prl.append(data)
-        #log.task_run_fail()
-        #log.write_error_to_appstatus(str(e), -1)
+        data = mtime + ';Err;' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + '\n'
+        result_queue.put(data)
+        log.task_run_fail()
+        log.write_error_to_appstatus(str(e), -1)
     return data
 
 
-def writeResult(result):
+def writeResult():
     log.write_result()
     try:
         writeFile = open(constans.RLT + "/sh_001.result", "w")
-        for i in result:
-            writeFile.write(i)
+        while not result_queue.empty():
+            writeFile.write(result_queue.get())
         writeFile.close()
         print time.ctime() + '-Writing Result File Finished-'
         log.write_result_success()
@@ -99,7 +96,7 @@ if __name__ == '__main__':
         os.makedirs(constans.RLT)
     ipList = []
     resultList = []
-    pool = Pool(16)
+    # pool = Pool(16)
     log.get_conf()
     mid = ()
     # 判断网络
@@ -127,17 +124,22 @@ if __name__ == '__main__':
         else:
             ipList.append(ip_set)
         try:
+            threads = []
             for i in ipList:
-                pool.apply_async(doShExec, (mid[0], mid[1], mid[2], i))
+                t = threading.Thread(target=doShExec, args=(mid[0], mid[1], mid[2], i))
+                threads.append(t)
+                t.start()
+            for t in threads:
+                t.join()
+                #pool.apply_async(doShExec, (mid[0], mid[1], mid[2], i))
             # resultList.append(tmp)
-            pool.close()
-            pool.join()
-            writeResult(prl)
+            #pool.close()
+            # pool.join()
+            writeResult()
             writeFile = open(constans.APP + "/0", "w")
             writeFile.close()
             log.task_success()
         except Exception as e:
-            print(e)
             writeFile = open(constans.APP + "/1", "w")
             writeFile.write('Exec the upload python script occurs error')
             writeFile.close()
@@ -146,8 +148,8 @@ if __name__ == '__main__':
     else:
         try:
             tmp = doShExec(mid[0], mid[1], mid[2], 'http')
-            resultList.append(tmp)
-            writeResult(resultList)
+            result_queue.put(tmp)
+            writeResult()
             writeFile = open(constans.APP + "/0", "w")
             writeFile.close()
             log.task_success()
