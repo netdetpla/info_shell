@@ -55,17 +55,18 @@ def doShExec(task_id, task_name, vul_id, ip):
     print time.ctime() + '-' + ip + '-Executing shell-'
     p = Popen(argv, stdout=PIPE, stderr=PIPE, shell=True)
     stdout, stderr = p.communicate()
+    mtime = time.strftime('%Y-%m-%d %H:%M:%S')
     if stderr:
-        data = mtime + ';Err;' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + '\n'
+        print(stderr)
+        data = mtime + ';Err;' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + ';Err;Err\n'
         result_queue.put(data)
         log.task_run_fail()
         log.write_error_to_appstatus(str('script error: ' + stderr), -1)
     print time.ctime() + '-' + ip + '-Finished-'
     rlist = stdout.split('\n')
     tmpresultlist = rlist[-2].split(';')
-    mtime = time.strftime('%Y-%m-%d %H:%M:%S')
     try:
-        data = mtime + ';' + tmpresultlist[0] + ';' + task_id + ';' + vul_id + ';' + task_name + ';' + ip +  '\n'
+        data = mtime + ';' + tmpresultlist[0] + ';' + task_id + ';' + vul_id + ';' + task_name + ';' + ip + ';' + tmpresultlist[1] + ';' + tmpresultlist[2]  + '\n'
         result_queue.put(data)
         log.task_run_success()
     except Exception as e:
